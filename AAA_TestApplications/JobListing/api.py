@@ -1,8 +1,9 @@
 """
 This module contains all methods necessary to connect to and retrieve information from 
-
-
 """
+# Imports for Graph Creation and management
+from rdflib import ConjunctiveGraph, BNode, Literal, Namespace
+from rdflib.namespace import FOAF, RDFS
 
 import pycrunchbase
 import simplejson
@@ -35,7 +36,7 @@ class CrunchbaseAPI(object):
             'org_list': settings.CRUNCHBASE_API_URL + "odm-organizations" +"{}"+ "&?user_key="+settings.CRUNCHBASE_API_KEY,
             'person_list': settings.CRUNCHBASE_API_URL + "odm-people" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
             'org': settings.CRUNCHBASE_API_URL + "odm-organizations" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
-            'person': settings.CRUNCHBASE_API_URL + "odm-people:name" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
+            'person': settings.CRUNCHBASE_API_URL + "odm-people" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
             }
 
         # Free API support searching ()
@@ -52,8 +53,8 @@ class CrunchbaseAPI(object):
                 'category_uuids': '&category_uuids='
             },
             'person_search': {
-                'name':'&name=',
-                'query': '&query=',
+                'name':'?name=',
+                'query': '?query=',
             },
             'person_filter': {
                 'updated_since': '&updated_since=',
@@ -63,8 +64,6 @@ class CrunchbaseAPI(object):
                 'types': '&types='
             }
         }
-
-        # Add search and filtering Strings
         
         # Select the search filters applicable to a given Type of query
         query = ""
@@ -85,25 +84,69 @@ class CrunchbaseAPI(object):
 
     def _queryApi(self, query):
         try:
-            data = simplejson.loads(requests.request(query))
-        except e:
-            raise Exception("Crunchbase API Connection failed", e)
+            return requests.get(query)
+        except:
+            raise Exception("Crunchbase API Connection failed")
 
-    def matchCompany(self, companyName, **filters):
+    def updateCompany(self, companyName, **filters):
         """
         Annotate Information about a Company 
         """
+        # Retrieve the Company Data from the Crunchbase API
+        request =  self._queryApi(self._get_query(queryType="org",search_type="name", search_string=companyName, **filters))
 
-        data = _queryApi(_get_query(queryType="org", orgId=companyName))
+        # Append resulting Information to a new graph
+        CRUNCHBASE = Namespace('http://www.openlinksw.com/schemas/crunchbase#')
+        # Create a graph and append the nodes
+        cg = ConjunctiveGraph()
+        cg.bind('cb', CRUNCHBASE)
+        company = BNode()
+        # Extract the information from the Response
+        for k,v in request.json()['data']['items'][0]['properties'].items():
+            cg.add((company, CRUNCHBASE[k], Literal(v)))
+        
+        # Serialize the Data for Testing
+        return cg.serialize(format='n3')
 
-    def matchPerson(self, personName):
+    def updatePerson(self, search_string, search_type="name", **filters):
         """
         Annotate Information on a given Person
         """
-        data = _queryApi(_get_query(queryType="people"))
+        # Retrieve the Company Data from the Crunchbase API
+        request =  self._queryApi(self._get_query(queryType="person",search_type="name", search_string=search_string, **filters))
 
+        # Append resulting Information to a new graph
+        CRUNCHBASE = Namespace('http://www.openlinksw.com/schemas/crunchbase#')
+        PERSON = Namespace("http://schema.org/Person#")
+        # Create a graph and append the nodes
+        cg = ConjunctiveGraph()
+        cg.bind('cb', CRUNCHBASE)
+        cg.bind('person', PERSON)
 
+        # Create the Person Node according to the Overall SmartRecruiting Graph
+        person = BNode()
 
+        # This creates a mapping between the Crunchbase and the 
+
+        # Map the information from the Crunchbase to Schema.org Ontology
+        cb_foaf_mapping = {
+            'first_name': 'givenName',
+            'last_name': 'familiyName',
+            'gender': 'gender',
+            'city_name': 'homeLocation',
+            'title': 'jobTitle',
+            'organization_permalink': 'memberOf',
+
+        }
+        for k,v in request.json()['data']['items'][0]['properties'].items():
+            # Check if Person related information (map to FOAF)
+            if k in cb_foaf_mapping:
+                cg.add((person, FOAF[cb_foaf_mapping[k]], Literal(v)))
+            # Else map it to the Crunchbase Ontology
+            else:
+                cg.add((person, CRUNCHBASE[k], Literal(v)))
+        # Serialize the Data for Testing
+        return cg.serialize(format='n3')
 
 class OpenRefine(object):
     """
@@ -298,4 +341,5 @@ class IndeedAPI(object):
 
 b = CrunchbaseAPI()
 # print(b._get_query(queryType='org', search_type="name", search_string="hiq", location_uuids='California,US'))
-print(b._get_query(queryType='org', search_type='domain_name', search_string='hiqlabs.com'))
+print(b.updateCompany(companyName='hiq labs'))
+# print(b.updatePerson(search_string="Elon Musk"))
