@@ -12,6 +12,7 @@ import requests
 from urllib.parse import quote_plus
 from settings import settings
 
+# Company Related Information Annotation Services
 class CrunchbaseAPI(object):
     """
     define all necessary interactions with the Crunchbase API to work within our
@@ -33,7 +34,7 @@ class CrunchbaseAPI(object):
         """
         # Create the basic API HTTP Request string
         query_request = {
-            'org_list': settings.CRUNCHBASE_API_URL + "odm-organizations" +"{}"+ "&?user_key="+settings.CRUNCHBASE_API_KEY,
+            'org_list': settings.CRUNCHBASE_API_URL + "odm-organizations" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
             'person_list': settings.CRUNCHBASE_API_URL + "odm-people" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
             'org': settings.CRUNCHBASE_API_URL + "odm-organizations" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
             'person': settings.CRUNCHBASE_API_URL + "odm-people" +"{}"+ "&user_key="+settings.CRUNCHBASE_API_KEY,
@@ -122,6 +123,7 @@ class CrunchbaseAPI(object):
         cg = ConjunctiveGraph()
         cg.bind('cb', CRUNCHBASE)
         cg.bind('person', PERSON)
+        cg.bind('foaf', FOAF)
 
         # Create the Person Node according to the Overall SmartRecruiting Graph
         person = BNode()
@@ -191,11 +193,11 @@ class OpenRefine(object):
     def _queryApi(self, query):
         """Executes a query against a given API"""
         try:
-            data = simplejson.loads(requests.request(query))
+            data = requests.request(query)
         except: 
             raise Exception('API Request failed to process')
 
-    def match_company(self, companyItem):
+    def update_company(self, companyItem):
         """
         Creates a queryDict from the existing companyItem to match the company against the OpenCompany Database
         """ 
@@ -212,7 +214,9 @@ class OpenRefine(object):
             'created_since': 'xxx',
             'incorporation_date': 'xxx',
         }
-
+    
+    def update_officers(self):
+        pass 
     def list_companies(self):
         """Extracts a list of matching Companies"""
 
@@ -237,7 +241,7 @@ class OpenRefine(object):
 
 
 
-
+# Job Listing Services to retrieve Raw Data from
 class IndeedAPI(object):
     """
     Defines all interactions with the Indeed Network globally.
@@ -341,5 +345,10 @@ class IndeedAPI(object):
 
 b = CrunchbaseAPI()
 # print(b._get_query(queryType='org', search_type="name", search_string="hiq", location_uuids='California,US'))
-print(b.updateCompany(companyName='hiq labs'))
-# print(b.updatePerson(search_string="Elon Musk"))
+# print(b.updateCompany(companyName='hiq labs'))
+print(b.updatePerson(search_string="Elon Musk"))
+
+
+
+
+# API Interface for the 
